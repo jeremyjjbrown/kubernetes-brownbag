@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: brownbag-pod
+  labels:
+    app: example
+spec:
+  containers:
+  - name: client
+    image: centos:centos7
+    command: ['/bin/bash', '-c', 'sleep 3600']
