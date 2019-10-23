@@ -58,10 +58,11 @@ Request a Namespace from the DP team
         hcr.data.here.com/dp-workflow/icli:f27bb15 token)
     ```
   - Setup kubectl to access the namespace
-    Required files: kube.config
+    Required files: ~/.kube.config
     https://ipaas.int-1-aws-eu-west-1.k8s.in.here.com/static/
     ```
-    kubectl --token $TOKEN --namespace here-olp-3dds-dev get pods
+    kubectl --token $TOKEN --kubeconfig ~/.kube/borg-dev-1-aws-eu-west-1 \
+       --namespace here-olp-3dds-dev get pods
     ```
 
 
