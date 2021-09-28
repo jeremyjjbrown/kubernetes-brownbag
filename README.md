@@ -6,76 +6,86 @@ Notes and code snippets for the Kuberentes Brown Bags
 
 Learn how to:
 
-    access Kubernetes Clusters and Namespaces using Here Account OIDC authorization
+    create Kubernetes Clusters using gcloud
+    access Kubernetes Clusters and Namespaces using kubectl
     deploy Docker containers to Kuberentes
     organize Docker containers with Pods, BatchJobs, CronJobs and Deployments
     configure Docker containers with ConfigMaps and Secrets
-    expose Deployments to the Kuberentes cluster and to the HERE LAN with Services
+    expose Deployments to the Kuberentes cluster LAN and internet with Services
     read container logs and gain shell access to containers
     how to design portable Docker containers so they work well on Kubernetes or any other scheduler
 
 
-It is highly reccomended to go through the K8S tutorials. They are well authored and useful.
-https://kubernetes.io/docs/setup/ minikube is great for learning but not much else.
+It is highly reccomended to go through the [K8S tutorials](https://kind.sigs.k8s.io/). They are well authored and useful. For a local K8Ss cluster use [kind](https://kind.sigs.k8s.io/).
 
 
 Why Kuberentes ?
 ----------------
 
 - Fast repeatable deployments
-- NFRs like autoscaling, loadbalanacing, secrets storage log routing, metrics,
-  config management are all free.
-- The company has dictated 70% of processing on OLP and DP end of 2020.
-- OLP has very little flexibility, DP Kuberentes has a lot of flexibility.
+- NFRs like autoscaling, loadbalanacing, secrets storage, log routing, metrics,
+  config management are all built in.
 - Industry standard that has been hardened by 100s of big companies, and it
   makes your resume look nice.
-- Fully supported by HERE. Support Jira Queue and WebEx teams channel for communtiy help.
 - Multi Region.
-- Much more.
+
+
+Deploy a Kuberentes Cluster in GCP
+----------------------------------
+
+In GCP is is very easy to create a Kubernetes cluster.
+
+```
+gcloud config set project $PROJECT_ID
+gcloud config set compute/zone $COMPUTE_ZONE
+gcloud container clusters create hello-cluster --num-nodes=1
+gcloud container clusters get-credentials hello-cluster
+```
+
+![Kubernetes Cluster Arch](images/cluster.png)
+
+In order to manage Kubernetes resoureces we'll need to setup [kubectl](https://kubernetes.io/docs/tasks/tools/) on our computer and configure it correctly.
+
+```
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+
+gcloud container clusters get-credentials --zone "$GCP_ZONE" $CLUSTER_NAME
+```
+
+This installs `kubectl` and sets up `~/.kube/config` with the needs CAs and credential hooks to interact with your cluster.
+```
+cat ~/.kube/config
+```
 
 
 Kuberenetes Role Based Authorization
 ------------------------------------
 
-Kuberenetes has controls access to resources via namespaces.
-  https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+It is highly reccomended to read the [Kubernetes RBAC documentation](https://kubernetes.io/docs/reference/access-authn-authz/rbac/).
+Kubernetes controls access to resources via ClusterRoles and Roles.
 
-  In order to Us Delivery Plaform, which is HERE's Kuberentes based offering we
-  need to:
-  - Request a Kuberentes Namespace from the DP Team
-  - Receive the HERE Account Credentials for the namespace
-  - Setup `kubectl` on our computer and configure it correctly.
+ClusterRoles provide across the entire cluster. Think of them as the SuperUser
+```
+kubectl get ClusterRoles
+```
 
-Request a Namespace from the DP team
-  - Read the doc https://ipaas.int-1-aws-eu-west-1.k8s.in.here.com/static/namespace.html#requesting-a-namespace
-  - File a ticket on the DPSUPP queue. Example: https://saeljira.it.here.com/browse/DPSUPP-2138
-  - Setup icli to mint OIDC tokens. The easiest way to do this is using the provied Docker container.
-    Required files: ipaas.config credentials.properties
-    ```bash
-    TOKEN=$(docker run \
-        -v $HOME/.here/ipaas.config:/opt/here/ipaas.config \
-        -v $HOME/.here/credentials.properties:/opt/here/credentials.properties \
-        hcr.data.here.com/dp-workflow/icli:f27bb15 token)
-    ```
-  - Setup kubectl to access the namespace
-    Required files: ~/.kube.config
-    https://ipaas.int-1-aws-eu-west-1.k8s.in.here.com/static/
-    ```
-    kubectl --token $TOKEN --kubeconfig ~/.kube/borg-dev-1-aws-eu-west-1 \
-       --namespace here-olp-3dds-dev get pods
-    ```
+Roles provide access to one or more Namespaces. Think of them as a regular user.
+```
+kubectl get Roles
+```
 
+Kuberentes collects objects into [Namespaces](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/). Think of each Namespace as $HOME in Kuberentes for the application.
+```
+kubectl get Namespaces
+```
 
-Helpful Links:
-[DP Clusters](https://confluence.in.here.com/display/OLP/Delivery+Platform%3A+Clusters)
-[iPaas Documentation](https://ipaas.int-1-aws-eu-west-1.k8s.in.here.com/static/)
-[kubectl](https://kubernetes.io/docs/reference/kubectl/overview/)
+`kube-*` Namespaces are reserved for the Cluster Control Plane and are not normall accessed by users.
 
 
 Kubernetes Pods and Deployments
 -------------------------------
 
-A Pod is a collectin of Docker Containers that all share the same localhost
+A Pod is a collection of Docker Containers that all share the same localhost
 and are all scheduled to the same kuberentes node. File paths can also be
 shared via mounts.
 
@@ -100,12 +110,12 @@ spec:
 ```
 
 ```bash
-qubectl -n here-olp-3dds-dev apply -f pod1.yaml
-qubectl -n here-olp-3dds-dev get pods
-qubectl -n here-olp-3dds-dev get pods brownbag-pod -o yaml
-qubectl -n here-olp-3dds-dev exec -it brownbag-pod /bin/bash
-qubectl -n here-olp-3dds-dev describe pods brownbag-pod
-qubectl -n here-olp-3dds-dev delete -f pod1.yaml
+kubectl apply -f pod1.yaml
+kubectl get pods
+kubectl get pods brownbag-pod -o yaml
+kubectl exec -it brownbag-pod /bin/bash
+kubectl describe pods brownbag-pod
+kubectl delete -f pod1.yaml
 ```
 
 Let's create a pod with 2 containers and exec to the container, curl the
@@ -130,13 +140,19 @@ spec:
 ```
 
 ```bash
-qubectl -n here-olp-3dds-dev apply -f pod2.yaml
-qubectl -n here-olp-3dds-dev exec -it brownbag-pod --container client /bin/bash
+kubectl apply -f pod2.yaml
+kubectl exec -it brownbag-pod --container client /bin/bash
 curl localhost:8000/
 exit
-qubectl -n here-olp-3dds-dev logs brownbag-pod --container server
+kubectl logs brownbag-pod --container server
+kubectl delete -f pod2.yaml
 ```
 
+
+ConfigMaps and Secrets
+======================
+Let's create a pod with a Secret and ConfigMap and exec to the container.
+#TODO
 
 BatchJobs, CronJobs and Deployments
 ===================================
@@ -155,7 +171,7 @@ K8s offers several options to schedule pods in different ways
 There are more types of ways to schedule pods documented under Controllers:
   https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
 
-Lets's create a deployment and service access it via kubedns.
+Lets's create a deployment and access it via kubedns.
 
 ```yaml
 apiVersion: apps/v1
@@ -180,8 +196,11 @@ spec:
         ports:
         - containerPort: 8000
         command: ['python', '-m', 'SimpleHTTPServer']
+```
 
----
+
+Services
+--------
 
 apiVersion: v1
 kind: Service
