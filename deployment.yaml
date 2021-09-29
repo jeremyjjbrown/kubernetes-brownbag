@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: brownbag-deployment
+  labels:
+    app: brownbag-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: brownbag-deployment
+  template:
+    metadata:
+      labels:
+        app: brownbag-deployment
+    spec:
+      containers:
+      - name: server
+        image: centos:centos7
+        ports:
+        - containerPort: 8000
+        command: ['python', '-m', 'SimpleHTTPServer']

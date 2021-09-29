@@ -154,7 +154,7 @@ spec:
 
 ```bash
 kubectl apply -f composed-pod.yaml
-kubectl exec -it brownbag-pod client /bin/bash
+kubectl exec -it brownbag-pod --container client /bin/bash
 curl localhost:8000/
 exit
 kubectl logs brownbag-pod server
@@ -233,7 +233,7 @@ data:
 
 ```bash
 kubectl apply -f mounts-pod.yaml
-kubectl exec -it brownbag-pod client /bin/bash
+kubectl exec -it brownbag-pod --container client /bin/bash
 cat config/config.properties
 env | grep ED
 cat secrets/.secret-file
@@ -242,7 +242,7 @@ kubectl delete -f mounts-pod.yaml
 ```
 
 
-BatchJobs, CronJobs and Deployments
+BatchJobs, CronJobs StatefulSets and Deployments
 ===================================
 
 K8s offers several options to schedule pods in different ways
@@ -251,16 +251,19 @@ K8s offers several options to schedule pods in different ways
   https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/
 - CronJobs allow run to completion at intervals defined in cron format.
   https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/
+
+- StatefulSets are for managing stateful applications like Databases, zookeeeper, consul, et al. https://kubernetes.io/docs/tutorials/stateful-application/basic-stateful-set/
+
 - Deployments allow for pods to be used as services in a highly scalable fashion.
-  They also facilitate rolling updates for pods during updates for the containers
-  or the underlying server instance.
+  They also facilitate rolling updates for pods during updates for the container or the underlying server instance.
   https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
 
 There are more types of ways to schedule pods documented under Controllers:
   https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
 
-Lets's create a deployment and access it via kubedns.
+Lets's create a deployment and access it via port-forwarding.
 
+deployment.yaml
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -284,12 +287,27 @@ spec:
         ports:
         - containerPort: 8000
         command: ['python', '-m', 'SimpleHTTPServer']
+```
+
+```bash
+kubectl apply -f deployment.yaml
+kubectl get deployment
+kubectl get replicaset
+kubectl get pods
+kubectl port-forward $POD_NAME 8000:8000
+curl http://localhost:8000/
 ```
 
 
 Services
 --------
 
+A Service is a way to expose a pods port outside of a namespace. Services select pods to forward traffic to based on labels and will loadbalance the requests if there is more than one pod matching the label spec. 
+
+Let's create a Deployment with a Service and access it from the Namespace.
+
+service.yaml
+```yaml
 apiVersion: v1
 kind: Service
 metadata:
@@ -303,40 +321,10 @@ spec:
     protocol: TCP
   selector:
     app: brownbag-deployment
-```
 
-```bash
-qubectl -n here-olp-3dds-dev apply -f deployment1.yaml
-qubectl -n here-olp-3dds-dev exec -it brownbag-pod --container client /bin/bash
-curl http://brownbag-service/
-```
-
-Lets's create a deployment and service and configure it with a ConfigMap and a
-Secret.
-
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  labels:
-    app: brownbag-deployment
-  name: brownbag-configmap
-data:
-  config.txt: k8s config
 
 ---
 
-apiVersion: v1
-kind: Secret
-type: Opaque
-metadata:
-  name: brownbag-secret
-  labels:
-    app: brownbag-deployment\
-data:
-  secret.txt: c3VwZXIgc2VjcmV0
-
----
 
 apiVersion: apps/v1
 kind: Deployment
@@ -360,22 +348,41 @@ spec:
         ports:
         - containerPort: 8000
         command: ['python', '-m', 'SimpleHTTPServer']
-        volumeMounts:
-        - name: config-volume
-          readOnly: true
-          mountPath: /config.txt
-          subPath: config.txt
-        - name: secret-volume
-          subPath: secret.txt
-          mountPath: "/secret.txt"
-          readOnly: true
-      volumes:
-      - name: config-volume
-        configMap:
-          name: brownbag-configmap
-      - name: secret-volume
-        secret:
-          secretName: brownbag-secret
+```
+
+```bash
+kubectl apply -f service.yaml
+kubectl exec -it $POD_NAME /bin/bash
+curl http://brownbag-service/
+kubectl delete -f service.yaml
+```
+
+Lets's access our service with a Public IP.
+
+loadbalancer.yaml
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: brownbag-deployment
+  labels:
+    app: brownbag-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: brownbag-deployment
+  template:
+    metadata:
+      labels:
+        app: brownbag-deployment
+    spec:
+      containers:
+      - name: server
+        image: centos:centos7
+        ports:
+        - containerPort: 8000
+        command: ['python', '-m', 'SimpleHTTPServer']
 
 ---
 
@@ -386,6 +393,7 @@ metadata:
   labels:
     app: brownbag-service
 spec:
+  type: LoadBalancer
   ports:
   - port: 80
     targetPort: 8000
@@ -395,16 +403,10 @@ spec:
 ```
 
 ```bash
-# show current pods
-qubectl -n here-olp-3dds-dev get pods
-qubectl -n here-olp-3dds-dev apply -f deployment1.yaml
-# show updated brownbag pods
-qubectl -n here-olp-3dds-dev get pods
-qubectl -n here-olp-3dds-dev exec -it brownbag-pod --container client /bin/bash
-curl http://brownbag-service/
-qubectl -n here-olp-3dds-dev exec -it brownbag-deployment-**************** /bin/bash
-ls -al *.txt
-ls *.txt | xargs cat
+kubectl apply -f loadbalancer.yaml
+kubectl get services
+curl http://$PUBLIC_IP/
+kubectl delete -f loadbalancer.yaml
 ```
 
 
