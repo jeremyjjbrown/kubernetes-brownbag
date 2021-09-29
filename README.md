@@ -89,7 +89,7 @@ Kubernetes Verbs
 ----------------
 
 get      - a list of basic info on specified objects.  
-describe - a list of basic info on specified objects.  
+describe - a list of details on specified objects.  
 create   - procedurally create the specified objects.  
 apply    - idempotently create the specified objects.  
 delete   - procedurally delete the specified objects.  
@@ -164,8 +164,83 @@ kubectl delete -f composed-pod.yaml
 
 ConfigMaps and Secrets
 ======================
+ConfigMaps and Secrets are ways to configure pods are deploy time. If mount target is missing from the Namespace, Kublet will wait for it to be present before scheduling a pod. Kubernetes secrets are encrypted at rest so they are a secure storage.
+
 Let's create a pod with a Secret and ConfigMap and exec to the container.
-#TODO
+
+mounts-pod.yaml
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: brownbag-pod
+  labels:
+    app: example
+spec:
+  containers:
+  - name: client
+    image: centos:centos7
+    command: ['/bin/bash', '-c', 'sleep 3600']
+    env:
+      - name: EDITOR
+        valueFrom:
+          configMapKeyRef:
+            name: config
+            key: editor
+    volumeMounts:
+    - name: my-secret
+      mountPath: "/secrets"
+      readOnly: true
+    - name: my-config
+      mountPath: "/config"
+      readOnly: true
+  volumes:
+  - name: my-secret
+    secret:
+      secretName: secret
+  - name: my-config
+    configMap:
+      name: config
+      items:
+      - key: "config.properties"
+        path: "config.properties"
+
+---
+
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret
+type: Opaque
+data:
+  .secret-file: |
+        4oCcQmUgU3VyZSBUbyBEcmluayBZb3VyIE92YWx0aW5lLuKAnQo=
+
+
+---
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config
+data:
+  editor: "vi"
+  config.properties: |
+    orchestrator=kubernetes
+```
+
+```bash
+kubectl apply -f mounts-pod.yaml
+kubectl exec -it brownbag-pod client /bin/bash
+cat config/config.properties
+env | grep ED
+cat secrets/.secret-file
+exit
+kubectl delete -f mounts-pod.yaml
+```
+
 
 BatchJobs, CronJobs and Deployments
 ===================================
