@@ -31,6 +31,8 @@ Why Kuberentes ?
 Deploy a Kuberentes Cluster in GCP
 ----------------------------------
 
+Hint: the script apply.sh will put up the infrastructure for you. Just set your PROJECT_ID and a unique SUFFIX if it's a shared project.
+
 In GCP is is very easy to create a Kubernetes cluster.
 
 ```
