@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: brownbag-pod
+  labels:
+    app: example
+spec:
+  containers:
+  - name: client
+    image: centos:centos7
+    command: ['/bin/bash', '-c', 'sleep 3600']
+    env:
+      - name: EDITOR
+        valueFrom:
+          configMapKeyRef:
+            name: config
+            key: editor
+    volumeMounts:
+    - name: my-secret
+      mountPath: "/secrets"
+      readOnly: true
+    - name: my-config
+      mountPath: "/config"
+      readOnly: true
+  volumes:
+  - name: my-secret
+    secret:
+      secretName: secret
+  - name: my-config
+    configMap:
+      name: config
+      items:
+      - key: "config.properties"
+        path: "config.properties"
+
+---
+
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret
+type: Opaque
+data:
+  .secret-file: |
+        4oCcQmUgU3VyZSBUbyBEcmluayBZb3VyIE92YWx0aW5lLuKAnQo=
+
+
+---
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config
+data:
+  editor: "vi"
+  config.properties: |
+    orchestrator=kubernetes

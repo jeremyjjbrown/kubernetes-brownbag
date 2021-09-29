@@ -6,14 +6,14 @@ Notes and code snippets for the Kuberentes Brown Bags
 
 Learn how to:
 
-    create Kubernetes Clusters using gcloud
-    access Kubernetes Clusters and Namespaces using kubectl
-    deploy Docker containers to Kuberentes
-    organize Docker containers with Pods, BatchJobs, CronJobs and Deployments
-    configure Docker containers with ConfigMaps and Secrets
-    expose Deployments to the Kuberentes cluster LAN and internet with Services
-    read container logs and gain shell access to containers
-    how to design portable Docker containers so they work well on Kubernetes or any other scheduler
+- create Kubernetes Clusters using gcloud.
+- access Kubernetes Clusters and Namespaces using kubectl.
+- deploy Docker containers to Kuberentes.
+- organize Docker containers with Pods, BatchJobs, CronJobs, Deployments and StatefulSets.
+- configure Docker containers with ConfigMaps and Secrets.
+- expose Deployments to the Kuberentes cluster LAN and internet with Services.
+- read container logs and gain shell access to containers.
+- how to design portable Docker containers so they work well on Kubernetes or any other scheduler.
 
 
 It is highly reccomended to go through the [K8S tutorials](https://kind.sigs.k8s.io/). They are well authored and useful. For a local K8Ss cluster use [kind](https://kind.sigs.k8s.io/).
@@ -22,12 +22,10 @@ It is highly reccomended to go through the [K8S tutorials](https://kind.sigs.k8s
 Why Kuberentes ?
 ----------------
 
-- Fast repeatable deployments
-- NFRs like autoscaling, loadbalanacing, secrets storage, log routing, metrics,
-  config management are all built in.
-- Industry standard that has been hardened by 100s of big companies, and it
-  makes your resume look nice.
-- Multi Region.
+- Fast repeatable deployments.
+- NFRs like autoscaling, loadbalanacing, secrets storage, log routing, metrics, config management are all built in.
+- Industry standard that has been hardened by 100s of big companies.
+- It makes your resume look nice.
 
 
 Deploy a Kuberentes Cluster in GCP
@@ -41,6 +39,9 @@ gcloud config set compute/zone $COMPUTE_ZONE
 gcloud container clusters create hello-cluster --num-nodes=1
 gcloud container clusters get-credentials hello-cluster
 ```
+
+The above is automated idempotently in `./scripts/apply.sh` and `./scripts/delete.sh` so you can easily manage a small cluster lifecycle.
+
 
 ![Kubernetes Cluster Arch](images/cluster.png)
 
@@ -79,22 +80,32 @@ Kuberentes collects objects into [Namespaces](https://kubernetes.io/docs/concept
 kubectl get Namespaces
 ```
 
-`kube-*` Namespaces are reserved for the Cluster Control Plane and are not normall accessed by users.
+`kube-*` Namespaces are reserved for the Cluster Control Plane and are not normally accessed by users.
+
+
+Kubernetes Verbs
+----------------
+
+get      - a list of basic info on specified objects.  
+describe - a list of basic info on specified objects.  
+create   - procedurally create the specified objects.  
+apply    - idempotently create the specified objects.  
+delete   - procedurally delete the specified objects.  
+logs     - get container logs from STDOUT|STDERR.  
+exec     - run a command in a container.  
 
 
 Kubernetes Pods and Deployments
 -------------------------------
 
-A Pod is a collection of Docker Containers that all share the same localhost
-and are all scheduled to the same kuberentes node. File paths can also be
-shared via mounts.
+A Pod is a collection of Docker Containers that all share the same localhost and are all scheduled to the same kuberentes node. File paths can also be shared via mounts.
 
 Helpful Links:
 [K8s Pods](https://kubernetes.io/docs/concepts/workloads/pods/pod/)
 
 Let's create a pod with 1 container and exec to the container.
 
-pod1.yaml
+simple-pod.yaml
 ```yaml
 apiVersion: v1
 kind: Pod
@@ -110,18 +121,18 @@ spec:
 ```
 
 ```bash
-kubectl apply -f pod1.yaml
+kubectl apply -f simple-pod.yaml
 kubectl get pods
 kubectl get pods brownbag-pod -o yaml
-kubectl exec -it brownbag-pod /bin/bash
+kubectl exec -it brownbag-pod -- /bin/bash
 kubectl describe pods brownbag-pod
-kubectl delete -f pod1.yaml
+kubectl delete -f simple-pod.yaml
 ```
 
 Let's create a pod with 2 containers and exec to the container, curl the
 service and view the service container log.
 
-pod2.yaml
+composed-pod.yaml
 ```yaml
 apiVersion: v1
 kind: Pod
@@ -140,12 +151,12 @@ spec:
 ```
 
 ```bash
-kubectl apply -f pod2.yaml
-kubectl exec -it brownbag-pod --container client /bin/bash
+kubectl apply -f composed-pod.yaml
+kubectl exec -it brownbag-pod client /bin/bash
 curl localhost:8000/
 exit
-kubectl logs brownbag-pod --container server
-kubectl delete -f pod2.yaml
+kubectl logs brownbag-pod server
+kubectl delete -f composed-pod.yaml
 ```
 
 
