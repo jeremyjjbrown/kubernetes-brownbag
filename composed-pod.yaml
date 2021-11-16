@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: brownbag-pod
+  name: brownbag-pod2
   labels:
     app: example
 spec:

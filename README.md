@@ -88,13 +88,13 @@ kubectl get Namespaces
 Kubernetes Verbs
 ----------------
 
-get      - a list of basic info on specified objects.  
-describe - a list of details on specified objects.  
-create   - procedurally create the specified objects.  
-apply    - idempotently create the specified objects.  
-delete   - procedurally delete the specified objects.  
-logs     - get container logs from STDOUT|STDERR.  
-exec     - run a command in a container.  
+get      - a list of basic info on specified objects.
+describe - a list of details on specified objects.
+create   - procedurally create the specified objects.
+apply    - idempotently create the specified objects.
+delete   - procedurally delete the specified objects.
+logs     - get container logs from STDOUT|STDERR.
+exec     - run a command in a container.
 
 
 Kubernetes Pods and Deployments
@@ -139,9 +139,9 @@ composed-pod.yaml
 apiVersion: v1
 kind: Pod
 metadata:
-  name: brownbag-pod
+  name: brownbag-pod2
   labels:
-    app: brownbag-pod
+    app: brownbag-pod2
 spec:
   containers:
   - name: client
@@ -302,7 +302,7 @@ curl http://localhost:8000/
 Services
 --------
 
-A Service is a way to expose a pods port outside of a namespace. Services select pods to forward traffic to based on labels and will loadbalance the requests if there is more than one pod matching the label spec. 
+A Service is a way to expose a pods port outside of a namespace. Services select pods to forward traffic to based on labels and will loadbalance the requests if there is more than one pod matching the label spec.
 
 Let's create a Deployment with a Service and access it from the Namespace.
 
