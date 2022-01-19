@@ -31,7 +31,6 @@ Why Kuberentes ?
 Deploy a Kuberentes Cluster in GCP
 ----------------------------------
 
-Hint: the script apply.sh will put up the infrastructure for you. Just set your PROJECT_ID and a unique SUFFIX if it's a shared project.
 
 In GCP is is very easy to create a Kubernetes cluster.
 
@@ -42,7 +41,13 @@ gcloud container clusters create hello-cluster --num-nodes=1
 gcloud container clusters get-credentials hello-cluster
 ```
 
-The above is automated idempotently in `./scripts/apply.sh` and `./scripts/delete.sh` so you can easily manage a small cluster lifecycle.
+Hint: The above is automated idempotently in `./scripts/apply.sh` and `./scripts/delete.sh` so you can easily manage a small cluster lifecycle.
+Just set a unique SUFFIX if it's a shared project.
+
+```
+export SUFFIX=k8s-$USER
+./scripts/apply.sh
+```
 
 
 ![Kubernetes Cluster Arch](images/cluster.png)
@@ -154,7 +159,7 @@ spec:
 
 ```bash
 kubectl apply -f composed-pod.yaml
-kubectl exec -it brownbag-pod --container client /bin/bash
+kubectl exec -it brownbag-pod --container client -- /bin/bash
 curl localhost:8000/
 exit
 kubectl logs brownbag-pod server
@@ -233,7 +238,7 @@ data:
 
 ```bash
 kubectl apply -f mounts-pod.yaml
-kubectl exec -it brownbag-pod --container client /bin/bash
+kubectl exec -it brownbag-pod --container client -- /bin/bash
 cat config/config.properties
 env | grep ED
 cat secrets/.secret-file
@@ -294,8 +299,10 @@ kubectl apply -f deployment.yaml
 kubectl get deployment
 kubectl get replicaset
 kubectl get pods
+export POD_NAME=$(kubectl get pods -o json | jq -r .items[0].metadata.name)
 kubectl port-forward $POD_NAME 8000:8000
 curl http://localhost:8000/
+kubectl delete -f deployment.yaml
 ```
 
 
@@ -352,7 +359,8 @@ spec:
 
 ```bash
 kubectl apply -f service.yaml
-kubectl exec -it $POD_NAME /bin/bash
+export POD_NAME=$(kubectl get pods -o json | jq -r .items[0].metadata.name)
+kubectl exec -it $POD_NAME -- /bin/bash
 curl http://brownbag-service/
 kubectl delete -f service.yaml
 ```
@@ -405,7 +413,8 @@ spec:
 ```bash
 kubectl apply -f loadbalancer.yaml
 kubectl get services
-curl http://$PUBLIC_IP/
+export PUBLIC_IP=$(kubectl get services brownbag-service -o json | jq -r '.status.loadBalancer.ingress[0].ip')
+curl -v http://$PUBLIC_IP/
 kubectl delete -f loadbalancer.yaml
 ```
 

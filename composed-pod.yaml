@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: brownbag-pod2
+  name: brownbag-pod
   labels:
-    app: example
+    app: brownbag-pod
 spec:
   containers:
   - name: client
