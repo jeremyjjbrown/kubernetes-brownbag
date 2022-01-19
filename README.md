@@ -1,4 +1,4 @@
-Kuberenetes Brown Bag
+Kubernetes Brown Bag
 =====================
 
 Notes and code snippets for the Kuberentes Brown Bags
