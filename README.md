@@ -6,11 +6,12 @@ Notes and code snippets for the Kuberentes Brown Bags
 
 Learn how to:
 
-- create Kubernetes Clusters using gcloud.
+- create local Kubernetes Clusters using kind.
 - access Kubernetes Clusters and Namespaces using kubectl.
 - deploy Docker containers to Kuberentes.
 - organize Docker containers with Pods, BatchJobs, CronJobs, Deployments and StatefulSets.
 - configure Docker containers with ConfigMaps and Secrets.
+- configure Deployments with autoscaling and health checks.
 - expose Deployments to the Kuberentes cluster LAN and internet with Services.
 - read container logs and gain shell access to containers.
 - how to design portable Docker containers so they work well on Kubernetes or any other scheduler.
@@ -28,42 +29,24 @@ Why Kuberentes ?
 - It makes your resume look nice.
 
 
-Deploy a Kuberentes Cluster in GCP
-----------------------------------
+Deploy a Kuberentes Cluster on your local machine with kind
+-----------------------------------------------------------
 
 
-In GCP is is very easy to create a Kubernetes cluster.
-
-```
-gcloud config set project $PROJECT_ID
-gcloud config set compute/zone $COMPUTE_ZONE
-gcloud container clusters create hello-cluster --num-nodes=1
-gcloud container clusters get-credentials hello-cluster
-```
-
-Hint: The above is automated idempotently in `./scripts/apply.sh` and `./scripts/delete.sh` so you can easily manage a small cluster lifecycle.
-Just set a unique SUFFIX if it's a shared project.
+With [Kind](https://kind.sigs.k8s.io/) is is very easy to create a Kubernetes cluster.
 
 ```
-export SUFFIX=k8s-$USER
-./scripts/apply.sh
-```
+brew install kind
+kind get clusters
+kind create cluster
+kubectl get namespaces
+kubectl get pods -n kubesystem
 
+# add a docker container to kind
+kind load docker-image centos:centos7 --name kind
+```
 
 ![Kubernetes Cluster Arch](images/cluster.png)
-
-In order to manage Kubernetes resoureces we'll need to setup [kubectl](https://kubernetes.io/docs/tasks/tools/) on our computer and configure it correctly.
-
-```
-curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-
-gcloud container clusters get-credentials --zone "$GCP_ZONE" $CLUSTER_NAME
-```
-
-This installs `kubectl` and sets up `~/.kube/config` with the needs CAs and credential hooks to interact with your cluster.
-```
-cat ~/.kube/config
-```
 
 
 Kuberenetes Role Based Authorization
@@ -79,7 +62,7 @@ kubectl get ClusterRoles
 
 Roles provide access to one or more Namespaces. Think of them as a regular user.
 ```
-kubectl get Roles
+kubectl get Roles -n kube-system
 ```
 
 Kuberentes collects objects into [Namespaces](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/). Think of each Namespace as $HOME in Kuberentes for the application.
@@ -133,7 +116,7 @@ kubectl get pods
 kubectl get pods brownbag-pod -o yaml
 kubectl exec -it brownbag-pod -- /bin/bash
 kubectl describe pods brownbag-pod
-kubectl delete -f simple-pod.yaml
+kubectl --wait=false delete -f simple-pod.yaml
 ```
 
 Let's create a pod with 2 containers and exec to the container, curl the
@@ -163,7 +146,7 @@ kubectl exec -it brownbag-pod --container client -- /bin/bash
 curl localhost:8000/
 exit
 kubectl logs brownbag-pod server
-kubectl delete -f composed-pod.yaml
+kubectl --wait=false delete -f composed-pod.yaml
 ```
 
 
@@ -248,7 +231,7 @@ kubectl delete -f mounts-pod.yaml
 
 
 BatchJobs, CronJobs StatefulSets and Deployments
-===================================
+================================================
 
 K8s offers several options to schedule pods in different ways
 
@@ -416,6 +399,67 @@ kubectl get services
 export PUBLIC_IP=$(kubectl get services brownbag-service -o json | jq -r '.status.loadBalancer.ingress[0].ip')
 curl -v http://$PUBLIC_IP/
 kubectl delete -f loadbalancer.yaml
+```
+
+
+Scaling, health and liveness of Deployments
+===========================================
+
+Deployments can be controlled by the Kuberentes control plane in order to enable autoscaling and self healing.
+
+Let's create a Deployment with an Horizontal Pod AutoScaler and Health and Liveness Probes.
+
+
+service.yaml
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: brownbag-service
+  labels:
+    app: brownbag-service
+spec:
+  ports:
+  - port: 80
+    targetPort: 8000
+    protocol: TCP
+  selector:
+    app: brownbag-deployment
+
+
+---
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: brownbag-deployment
+  labels:
+    app: brownbag-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: brownbag-deployment
+  template:
+    metadata:
+      labels:
+        app: brownbag-deployment
+    spec:
+      containers:
+      - name: server
+        image: centos:centos7
+        ports:
+        - containerPort: 8000
+        command: ['python', '-m', 'SimpleHTTPServer']
+```
+
+```bash
+kubectl apply -f service.yaml
+export POD_NAME=$(kubectl get pods -o json | jq -r .items[0].metadata.name)
+kubectl exec -it $POD_NAME -- /bin/bash
+curl http://brownbag-service/
+kubectl delete -f service.yaml
 ```
 
 
