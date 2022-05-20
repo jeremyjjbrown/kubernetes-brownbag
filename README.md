@@ -40,7 +40,7 @@ brew install kind
 kind get clusters
 kind create cluster
 kubectl get namespaces
-kubectl get pods -n kubesystem
+kubectl get pods -n kube-system
 
 # add a docker container to kind
 kind load docker-image centos:centos7 --name kind
@@ -410,7 +410,7 @@ Deployments can be controlled by the Kuberentes control plane in order to enable
 Let's create a Deployment with an Horizontal Pod AutoScaler and Health and Liveness Probes.
 
 
-service.yaml
+liveness.yaml
 ```yaml
 apiVersion: v1
 kind: Service
@@ -421,7 +421,7 @@ metadata:
 spec:
   ports:
   - port: 80
-    targetPort: 8000
+    targetPort: 10000
     protocol: TCP
   selector:
     app: brownbag-deployment
@@ -448,14 +448,20 @@ spec:
     spec:
       containers:
       - name: server
-        image: centos:centos7
+        image: brownbag
         ports:
-        - containerPort: 8000
-        command: ['python', '-m', 'SimpleHTTPServer']
+        - containerPort: 10000
+        command: ['python3', 'app.py']
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 10000
+          initialDelaySeconds: 3
+          periodSeconds: 3
 ```
 
 ```bash
-kubectl apply -f service.yaml
+kubectl apply -f liveness.yaml
 export POD_NAME=$(kubectl get pods -o json | jq -r .items[0].metadata.name)
 kubectl exec -it $POD_NAME -- /bin/bash
 curl http://brownbag-service/

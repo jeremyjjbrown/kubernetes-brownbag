@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: brownbag-service
+  labels:
+    app: brownbag-service
+spec:
+  ports:
+  - port: 80
+    targetPort: 10000
+    protocol: TCP
+  selector:
+    app: brownbag-deployment
+
+
+---
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: brownbag-deployment
+  labels:
+    app: brownbag-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: brownbag-deployment
+  template:
+    metadata:
+      labels:
+        app: brownbag-deployment
+    spec:
+      containers:
+      - name: server
+        image: brownbag
+        ports:
+        - containerPort: 10000
+        command: ['python3', 'app.py']
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 10000
+          initialDelaySeconds: 3
+          periodSeconds: 3
